@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<!--
+  BRAND- OCH UTRYMNINGSGENOMGÅNG — frågebank
+  =============================================
+  ANPASSA INNAN NI PUBLICERAR PÅ GITHUB PAGES:
+  1. Fyll i CONFIG-objektet nedan (organisationens namn, återsamlingsplats,
+     samt mejladressen resultatet ska skickas till).
+  2. Granska och ändra frågorna i QUESTIONS så de stämmer med er verksamhet
+     (t.ex. om ni har fler våningsplan, specifika larmrutiner osv).
+  3. Ladda upp filen till ert GitHub-repo och slå på GitHub Pages.
+  4. I Power Automate: skapa ett flöde med triggern "När ett nytt mail kommer"
+     (samma mönster som Brandlarmssimulatorn) som bevakar CONFIG.resultEmail,
+     läser raderna i brödtexten (Namn/E-post/Resultat/Godkänd/Tidpunkt) och
+     uppdaterar rätt rad i er Microsoft List. Ingen CORS-konfiguration behövs
+     med den här lösningen, eftersom sidan aldrig anropar Power Automate direkt
+     — personen skickar mejlet själv från Outlook Web App.
+  5. Länken ni mejlar ut till personalen bör innehålla ?namn=...&epost=...
+     så att formuläret fylls i automatiskt och rätt person matchas i listan.
+     Exempel: https://ert-repo.github.io/sidan.html?namn=Anna%20Svensson&epost=anna@exempel.se
+-->
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brand- och utrymningsgenomgång</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F2F4F1;
+    --surface: #FFFFFF;
+    --ink: #1C2B33;
+    --ink-soft: #526069;
+    --ink-faint: #7C8A90;
+    --accent: #D68A3C;
+    --accent-deep: #AD6C24;
+    --accent-bg: #FBF0DF;
+    --correct: #3F7D5C;
+    --correct-bg: #E6F1EB;
+    --incorrect: #B24A3C;
+    --incorrect-bg: #FBEAE6;
+    --border: #DDE3DE;
+    --shadow: 0 1px 2px rgba(28,43,51,0.06), 0 8px 24px rgba(28,43,51,0.05);
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 32px 16px 64px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 620px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 36px 32px;
+  }
+
+  @media (max-width: 480px) {
+    .card { padding: 26px 20px; border-radius: 10px; }
+    .page { padding: 12px 8px 40px; }
+  }
+
+  h1, h2, h3 {
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 12px;
+  }
+
+  h1 { font-size: 1.7rem; line-height: 1.25; }
+  h2 { font-size: 1.25rem; }
+
+  p { color: var(--ink-soft); margin: 0 0 16px; }
+
+  .org-label {
+    font-size: 0.85rem;
+    color: var(--ink-faint);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+
+  .info-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 20px 0;
+  }
+
+  .info-box dt {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--ink);
+    margin-top: 10px;
+  }
+  .info-box dt:first-child { margin-top: 0; }
+  .info-box dd {
+    margin: 2px 0 0;
+    color: var(--ink-soft);
+    font-size: 0.92rem;
+  }
+
+  label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+
+  input[type="text"], input[type="email"] {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    font-family: inherit;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+
+  input:focus, button:focus-visible {
+    outline: 2px solid var(--accent-deep);
+    outline-offset: 2px;
+  }
+
+  button {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    border: none;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #2A1B08;
+    padding: 13px 24px;
+    border-radius: 8px;
+    width: 100%;
+    transition: background 0.15s ease;
+  }
+  .btn-primary:hover { background: var(--accent-deep); }
+  .btn-primary:disabled { background: var(--border); color: var(--ink-faint); cursor: not-allowed; }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--ink-soft);
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { background: var(--bg); }
+
+  /* --- Progress --- */
+  .progress-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.25s ease;
+  }
+  .progress-label {
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+    font-weight: 500;
+    margin-bottom: 22px;
+  }
+
+  .category-tag {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent-deep);
+    background: var(--accent-bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+  }
+
+  .question-text {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 20px;
+    line-height: 1.4;
+  }
+
+  .options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+
+  .option {
+    text-align: left;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    padding: 13px 16px;
+    font-size: 0.98rem;
+    color: var(--ink);
+    min-height: 44px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .option:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-bg); }
+  .option:disabled { cursor: default; }
+
+  .option.is-correct { border-color: var(--correct); background: var(--correct-bg); color: var(--correct); }
+  .option.is-incorrect { border-color: var(--incorrect); background: var(--incorrect-bg); color: var(--incorrect); }
+  .option.is-muted { opacity: 0.55; }
+
+  .feedback {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 9px;
+    font-size: 0.92rem;
+    display: none;
+  }
+  .feedback.show { display: block; }
+  .feedback.correct { background: var(--correct-bg); color: var(--correct); }
+  .feedback.incorrect { background: var(--incorrect-bg); color: var(--incorrect); }
+  .feedback strong { display: block; margin-bottom: 4px; font-family: 'Space Grotesk', sans-serif; }
+
+  .next-row { margin-top: 20px; }
+
+  /* --- Result screen --- */
+  .score-display {
+    text-align: center;
+    padding: 20px 0 6px;
+  }
+  .score-number {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .score-total { font-size: 1.2rem; color: var(--ink-faint); }
+  .score-status {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .score-status.pass { background: var(--correct-bg); color: var(--correct); }
+  .score-status.fail { background: var(--incorrect-bg); color: var(--incorrect); }
+
+  .review-item {
+    border-top: 1px solid var(--border);
+    padding: 16px 0;
+  }
+  .review-item .q { font-weight: 600; margin-bottom: 6px; }
+  .review-item .your-answer { color: var(--incorrect); font-size: 0.9rem; margin-bottom: 4px; }
+  .review-item .right-answer { color: var(--correct); font-size: 0.9rem; margin-bottom: 4px; }
+  .review-item .why { color: var(--ink-soft); font-size: 0.88rem; }
+
+  .submit-section {
+    margin-top: 28px;
+    border-top: 1px solid var(--border);
+    padding-top: 22px;
+  }
+
+  .status-msg {
+    margin-top: 12px;
+    font-size: 0.88rem;
+    padding: 10px 14px;
+    border-radius: 8px;
+    display: none;
+  }
+  .status-msg.show { display: block; }
+  .status-msg.ok { background: var(--correct-bg); color: var(--correct); }
+  .status-msg.err { background: var(--incorrect-bg); color: var(--incorrect); }
+
+  .hidden { display: none !important; }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .progress-fill, .option, .btn-primary { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="card" id="app" role="main" aria-live="polite"></div>
+</div>
+
+<script>
+/* =========================================================
+   CONFIG — anpassa dessa värden efter er verksamhet
+   ========================================================= */
+const CONFIG = {
+  orgName: "Nylösegården",
+  assemblyPoint: "Gräsmattan vid Vaktgatan",
+  // Mejladressen som resultatet ska skickas till.
+  resultEmail: "jonas.nordenmark@fralsningsarmen.se",
+  // Kod som identifierar detta verktyg i ämnesraden, motsvarande "FG5000" i
+  // Brandlarmssimulatorn.
+  emailCode: "NGBRAND",
+  // Andel rätt som krävs för att räknas som godkänd genomgång (0.8 = 80%)
+  passThreshold: 0.8
+};
+
+/* =========================================================
+   FRÅGEBANK — lägg till, ta bort eller ändra frågor här
+   ========================================================= */
+const QUESTIONS = [
+  {
+    cat: "Vid upptäckt brand",
+    q: "Vad är det första du ska göra om du upptäcker brand eller ser rök?",
+    options: [
+      "Försöka släcka branden själv innan du gör något annat",
+      "Rädda personer i fara, larma 112, varna andra och stäng dörrar — släck bara om det går säkert",
+      "Springa ut och lämna boendet utan att varna någon",
+      "Vänta och se om det sprider sig innan du agerar"
+    ],
+    correct: 1,
+    why: "Minnesregeln är Rädda – Larma – Varna – Släck. Att rädda liv och varna andra kommer före släckningsförsök."
+  },
+  {
+    cat: "Larmnummer",
+    q: "Vilket nummer ringer du för att larma räddningstjänsten vid brand?",
+    options: ["112", "113 13", "114 14", "Boendets reception"],
+    correct: 0,
+    why: "112 är det gemensamma nödnumret för räddningstjänst, ambulans och polis i Sverige."
+  },
+  {
+    cat: "Utrymning",
+    q: "Brandlarmet går när du befinner dig i boendet. Vad gör du?",
+    options: [
+      "Fortsätter som vanligt tills du hör vidare instruktioner",
+      "Tar mig till Brandlarmcentralen och tar upp rutinblad 1 om jag är först på plats, för att sedan följa stegen. Om jag är nummer två tar jag rutinblad 2. Om jag arbetar själv tar jag rutinblad för ensamarbete",
+      "Utrymmer mig själv eftersom det är säkrast",
+      "Tar min bil och åker hem"
+    ],
+    correct: 1,
+    why: "Personal ansvarar för att agera utifrån gällande rutiner med att undersöka om det är en brand, eventuellt släcka och bistå med utrymning om det är aktuellt."
+  },
+  {
+    cat: "Brand",
+    q: "Vad gör jag om det är en aktiv brand som vi inte kan släcka?",
+    options: [
+      "Väntar på Räddningstjänsten",
+      "Jag ringer 112 och meddelar att det brinner och ger adress Skaragatan 3 i Göteborg. Jag talar också om att det är ett stödboende och hur många personer som befinner sig i huset, både boenden och personal",
+      "Ringer chef i beredskap",
+      "Trycker på larmknappen"
+    ],
+    correct: 1,
+    why: "Nylösegården har ett brandlarm som INTE är automatiskt överfört till Räddningstjänsten. Det innebär att larmknappar INTE sänder signal till Räddningstjänsten. Personal måste ringa 112 för att kalla på hjälp."
+  },
+  {
+    cat: "Återsamlingsplats",
+    q: "Varför är det viktigt att alla samlas på återsamlingsplatsen vid utrymning?",
+    options: [
+      "För att det är trevligt att stå tillsammans",
+      "Det är inte viktigt, man kan gå hem direkt",
+      "För att kunna stämma av att alla boende och personal är utrymda och rapportera till räddningstjänsten",
+      "För att invänta att larmet tystnar"
+    ],
+    correct: 2,
+    why: "Avstämning gör att ni snabbt upptäcker om någon saknas och kan ge korrekt information till räddningstjänsten."
+  },
+  {
+    cat: "Individuella behov",
+    q: "Vad behöver du känna till om boende som inte kan utrymma helt på egen hand?",
+    options: [
+      "Det räcker att veta vilket rum de bor i",
+      "Individuella utrymningsplaner som beskriver vilken hjälp respektive boende behöver",
+      "Det är enbart räddningstjänstens ansvar att veta detta",
+      "Man behöver inte planera för detta i förväg"
+    ],
+    correct: 1,
+    why: "Boende med nedsatt rörlighet eller andra behov ska ha en individuell utrymningsplan som personalen känner till väl."
+  },
+  {
+    cat: "Brandsläckare",
+    q: "När är det lämpligt att själv försöka släcka en brand med brandsläckare?",
+    options: [
+      "Alltid, oavsett hur stor branden är",
+      "Aldrig, personal får inte hantera brandsläckare",
+      "Endast efter att räddningstjänsten anlänt",
+      "Endast om branden är liten, du vet hur släckaren fungerar och du har en säker reträttväg"
+    ],
+    correct: 3,
+    why: "Släck bara en mindre brand om du säkert kan göra det och alltid med en fri väg ut bakom dig."
+  },
+  {
+    cat: "Rökfylld miljö",
+    q: "Hur ska du röra dig om ett utrymme fylls med rök?",
+    options: [
+      "Stå upprätt för bättre översikt",
+      "Böj dig lågt eller krypa, eftersom rök stiger och luften är renare nära golvet",
+      "Spring så fort som möjligt rakt igenom",
+      "Håll för ögonen och känn dig fram längs taket"
+    ],
+    correct: 1,
+    why: "Rök och giftiga gaser stiger uppåt — hålls du lågt andas du renare luft och ser bättre."
+  },
+  {
+    cat: "Stängda dörrar",
+    q: "Varför ska du stänga dörren efter dig när du lämnar ett rum vid brand?",
+    options: [
+      "Det spelar ingen roll om dörren är öppen eller stängd",
+      "En stängd dörr bromsar brand- och rökspridning och ger mer tid för utrymning",
+      "Enbart av integritetsskäl",
+      "För att boende inte ska kunna gå tillbaka in"
+    ],
+    correct: 1,
+    why: "En stängd dörr kan bromsa branden i flera minuter — värdefull tid för utrymning och räddningstjänstens insats."
+  },
+  {
+    cat: "Brandövning",
+    q: "Hur ofta bör brand- och utrymningsövningar genomföras enligt god praxis?",
+    options: [
+      "Endast en gång, när man är nyanställd",
+      "Endast om en incident har inträffat",
+      "Regelbundet, minst en gång per år, så att rutinerna sitter hos all personal",
+      "Det finns ingen rekommendation"
+    ],
+    correct: 2,
+    why: "Regelbunden repetition gör att rutinerna sitter kvar även i en verklig, stressad situation."
+  },
+  {
+    cat: "Efter utrymning",
+    q: "En boende saknas vid avstämningen på återsamlingsplatsen. Vad gör du?",
+    options: [
+      "Går själv tillbaka in i byggnaden för att leta",
+      "Meddelar omedelbart räddningstjänsten så att de kan göra en säker sökning",
+      "Väntar en stund och ser om personen dyker upp",
+      "Skriver en avvikelserapport nästa dag"
+    ],
+    correct: 1,
+    why: "Gå aldrig in i en brinnande byggnad själv — räddningstjänsten har utrustning och kompetens för säker sökning."
+  },
+  {
+    cat: "Efter händelsen",
+    q: "Vad bör göras efter en verklig utrymning eller en allvarlig brandlarmshändelse?",
+    options: [
+      "Inget särskilt, man fortsätter som vanligt",
+      "Endast chefen behöver informeras muntligt",
+      "Man väntar till nästa planerade brandövning med att prata om det",
+      "En genomgång/avvikelserapport görs för att fånga lärdomar och eventuella brister i rutinerna"
+    ],
+    correct: 3,
+    why: "Personal ska skriva en tillbudsrapport i IDOK, och informera chef i beredskap. En strukturerad genomgång efteråt gör att brister i rutiner eller byggnad upptäcks och kan åtgärdas."
+  }
+];
+
+/* =========================================================
+   Applikationslogik
+   ========================================================= */
+const params = new URLSearchParams(window.location.search);
+const prefillNamn = params.get("namn") || "";
+const prefillEpost = params.get("epost") || "";
+
+let current = 0;
+let score = 0;
+let answered = false;
+let missed = []; // {q, your, right, why}
+
+const app = document.getElementById("app");
+
+function renderStart() {
+  app.innerHTML = `
+    <div class="org-label">${escapeHtml(CONFIG.orgName)}</div>
+    <h1>Brand- och utrymningsgenomgång</h1>
+    <p>Gå igenom ${QUESTIONS.length} kortfattade frågor om vad som gäller vid brand och utrymning på boendet. Det tar cirka 5 minuter. Efter varje fråga får du direkt återkoppling.</p>
+    <div class="info-box">
+      <dl>
+        <dt>Återsamlingsplats</dt>
+        <dd>${escapeHtml(CONFIG.assemblyPoint)}</dd>
+      </dl>
+    </div>
+    <label for="namn-input">Ditt namn</label>
+    <input type="text" id="namn-input" value="${escapeAttr(prefillNamn)}" placeholder="För- och efternamn" autocomplete="name">
+    <label for="epost-input">Din e-post</label>
+    <input type="email" id="epost-input" value="${escapeAttr(prefillEpost)}" placeholder="namn@exempel.se" autocomplete="email">
+    <button class="btn-primary" id="start-btn">Starta genomgången</button>
+  `;
+  document.getElementById("start-btn").addEventListener("click", () => {
+    const namn = document.getElementById("namn-input").value.trim();
+    const epost = document.getElementById("epost-input").value.trim();
+    if (!namn || !epost) {
+      alert("Fyll i namn och e-post innan du startar.");
+      return;
+    }
+    window._namn = namn;
+    window._epost = epost;
+    current = 0; score = 0; missed = [];
+    renderQuestion();
+  });
+}
+
+function renderQuestion() {
+  answered = false;
+  const item = QUESTIONS[current];
+  const pct = Math.round((current / QUESTIONS.length) * 100);
+
+  app.innerHTML = `
+    <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+    <div class="progress-label">Fråga ${current + 1} av ${QUESTIONS.length}</div>
+    <div class="category-tag">${escapeHtml(item.cat)}</div>
+    <div class="question-text">${escapeHtml(item.q)}</div>
+    <div class="options" id="options-wrap">
+      ${item.options.map((opt, i) => `<button class="option" data-i="${i}">${escapeHtml(opt)}</button>`).join("")}
+    </div>
+    <div class="feedback" id="feedback" aria-live="polite"></div>
+    <div class="next-row hidden" id="next-row">
+      <button class="btn-primary" id="next-btn">${current === QUESTIONS.length - 1 ? "Se resultat" : "Nästa fråga"}</button>
+    </div>
+  `;
+
+  document.querySelectorAll(".option").forEach(btn => {
+    btn.addEventListener("click", () => handleAnswer(parseInt(btn.dataset.i, 10)));
+  });
+}
+
+function handleAnswer(chosenIndex) {
+  if (answered) return;
+  answered = true;
+  const item = QUESTIONS[current];
+  const correctIndex = item.correct;
+  const isCorrect = chosenIndex === correctIndex;
+  if (isCorrect) score++;
+  else missed.push({ q: item.q, your: item.options[chosenIndex], right: item.options[correctIndex], why: item.why });
+
+  document.querySelectorAll(".option").forEach((btn, i) => {
+    btn.disabled = true;
+    if (i === correctIndex) btn.classList.add("is-correct");
+    else if (i === chosenIndex) btn.classList.add("is-incorrect");
+    else btn.classList.add("is-muted");
+  });
+
+  const fb = document.getElementById("feedback");
+  fb.className = "feedback show " + (isCorrect ? "correct" : "incorrect");
+  fb.innerHTML = `<strong>${isCorrect ? "Rätt!" : "Inte riktigt."}</strong>${escapeHtml(item.why)}`;
+
+  document.getElementById("next-row").classList.remove("hidden");
+  document.getElementById("next-btn").addEventListener("click", () => {
+    current++;
+    if (current < QUESTIONS.length) renderQuestion();
+    else renderResult();
+  }, { once: true });
+}
+
+function renderResult() {
+  const total = QUESTIONS.length;
+  const ratio = score / total;
+  const passed = ratio >= CONFIG.passThreshold;
+
+  const reviewHtml = missed.length === 0
+    ? `<p>Alla svar var rätt — bra jobbat!</p>`
+    : missed.map(m => `
+        <div class="review-item">
+          <div class="q">${escapeHtml(m.q)}</div>
+          <div class="your-answer">Ditt svar: ${escapeHtml(m.your)}</div>
+          <div class="right-answer">Rätt svar: ${escapeHtml(m.right)}</div>
+          <div class="why">${escapeHtml(m.why)}</div>
+        </div>
+      `).join("");
+
+  app.innerHTML = `
+    <div class="org-label">${escapeHtml(CONFIG.orgName)}</div>
+    <h2>Din genomgång är klar</h2>
+    <div class="score-display">
+      <span class="score-number">${score}</span><span class="score-total">/ ${total} rätt</span>
+      <div><span class="score-status ${passed ? "pass" : "fail"}">${passed ? "Godkänd genomgång" : "Under gränsen — se gärna över felen"}</span></div>
+    </div>
+    ${reviewHtml}
+    <div class="submit-section">
+      <p style="margin-bottom:12px;">Skicka in resultatet för <strong>${escapeHtml(window._namn || "")}</strong> (${escapeHtml(window._epost || "")}) genom att öppna ett förifyllt mejl i Outlook och trycka Skicka.</p>
+      <a class="btn-primary" id="submit-link" style="display:block; text-align:center; text-decoration:none;" target="_blank" rel="noopener noreferrer">Skicka in resultat via mejl</a>
+      <div class="status-msg" id="status-msg"></div>
+      <div style="margin-top:16px;">
+        <button class="btn-secondary" id="restart-btn">Gör om genomgången</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("restart-btn").addEventListener("click", renderStart);
+
+  const payload = {
+    namn: window._namn || "",
+    epost: window._epost || "",
+    poang: score,
+    maxpoang: total,
+    godkand: passed,
+    datum: formatDatum(new Date())
+  };
+  const submitLink = document.getElementById("submit-link");
+  submitLink.href = buildOwaLink(payload);
+  submitLink.addEventListener("click", () => {
+    const statusEl = document.getElementById("status-msg");
+    statusEl.className = "status-msg show ok";
+    statusEl.textContent = "Mejlet öppnas i Outlook Web App i en ny flik — glöm inte att trycka Skicka där för att slutföra inrapporteringen.";
+  });
+}
+
+/* Betygstrappa för BETYG-fältet i mejlet. Justera fritt — trösklarna är
+   andel rätt (0–1). Godkänt-nivån följer alltid CONFIG.passThreshold. */
+function getBetyg(ratio) {
+  if (ratio >= 1) return { emoji: "🥇", text: "Utmärkt!" };
+  if (ratio >= 0.9) return { emoji: "🥈", text: "Mycket bra!" };
+  if (ratio >= CONFIG.passThreshold) return { emoji: "🥉", text: "Godkänt" };
+  return { emoji: "❌", text: "Ej godkänt" };
+}
+
+function formatDatum(d) {
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/* Bygger en OWA-deeplänk (samma mönster och fältformat som Brandlarmssimulatorn,
+   t.ex. "FG5000|GODKAND|maysan|maysan.zachrisson@fralsningsarmen.se|30|30|2026-09-04 09:48:22").
+   Personen trycker själv Skicka, och mottagarens flöde/sortering läser
+   ämnesraden och/eller raderna i brödtexten. */
+function buildOwaLink(payload) {
+  const ratio = payload.poang / payload.maxpoang;
+  const betyg = getBetyg(ratio);
+  const status = payload.godkand ? "GODKAND" : "EJ_GODKAND";
+
+  const subject = [
+    CONFIG.emailCode, status, payload.namn, payload.epost,
+    payload.poang, payload.maxpoang, payload.datum
+  ].join("|");
+
+  const body = [
+    `NAMN: ${payload.namn}`,
+    `EPOST: ${payload.epost}`,
+    `POANG: ${payload.poang}`,
+    `MAXPOANG: ${payload.maxpoang}`,
+    `BETYG: ${betyg.emoji} ${betyg.text}`,
+    `GODKAND: ${payload.godkand ? "Ja" : "Nej"}`,
+    `DATUM: ${payload.datum}`
+  ].join("\n");
+
+  const params = new URLSearchParams({ to: CONFIG.resultEmail, subject, body });
+  return `https://outlook.office.com/mail/deeplink/compose?${params.toString()}`;
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+function escapeAttr(str) { return escapeHtml(str); }
+
+renderStart();
+</script>
+</body>
+</html>
