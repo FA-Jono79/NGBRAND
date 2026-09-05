@@ -662,8 +662,15 @@ function buildOwaLink(payload) {
     `DATUM: ${payload.datum}`
   ].join("\n");
 
-  const params = new URLSearchParams({ to: CONFIG.resultEmail, subject, body });
-  return `https://outlook.office.com/mail/deeplink/compose?${params.toString()}`;
+  // OBS: bygg webbadressen manuellt med encodeURIComponent, inte URLSearchParams.
+  // URLSearchParams kodar mellanslag som "+", vilket Outlook Web App inte läser
+  // tillbaka som mellanslag — det blev bokstavliga plustecken i namn/datum.
+  const query = [
+    `to=${encodeURIComponent(CONFIG.resultEmail)}`,
+    `subject=${encodeURIComponent(subject)}`,
+    `body=${encodeURIComponent(body)}`
+  ].join("&");
+  return `https://outlook.office.com/mail/deeplink/compose?${query}`;
 }
 
 function escapeHtml(str) {
